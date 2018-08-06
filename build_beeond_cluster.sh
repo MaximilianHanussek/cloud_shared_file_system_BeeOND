@@ -15,6 +15,7 @@ network=${api_parameters_array[4]}
 security_group=${api_parameters_array[5]}
 key_name=${api_parameters_array[6]}
 storage_type=${api_parameters_array[7]}
+volume_size=${api_parameters_array[8]} #Has to be entered in GB
 vm_name_master=unicore_master
 vm_name_compute1=unicore_compute1
 vm_name_compute2=unicore_compute2
@@ -215,7 +216,7 @@ ssh -i $path_private_key -q -tt -n centos@$2 sudo sed -i 's/enabled=1/enabled=0/
 
 echo "Download git repo on $1"
 #Download git repo for customized beeond files
-ssh -i $path_private_key -q -tt -n centos@$2 git clone https://github.com/MaximilianHanussek/cloud_shared_file_system_BeeOND.git
+ssh -i $path_private_key -q -tt -n centos@$2 git clone https://github.com/MaximilianHanussek/cloud_shared_file_system_BeeOND.git 1> /dev/null 2> /dev/null
 
 echo "Replace standard beeond scripts on $1"
 #Replace standard beeond scripts with custom scripts
@@ -224,7 +225,7 @@ ssh -i $path_private_key -q -tt -n centos@$2 sudo cp -f /home/centos/cloud_share
 
 echo "Create filesystem on cinder volume on $1"
 #Create filesystem on volumes
-ssh -i $path_private_key -q -tt -n centos@$2 sudo mkfs.xfs /dev/vdb
+ssh -i $path_private_key -q -tt -n centos@$2 sudo mkfs.xfs /dev/vdb 1> /dev/null 2> /dev/null
 
 echo "Mount cinder volumes on $1"
 #Mount cinder volume(s)
@@ -260,13 +261,13 @@ update_vm "$vm_name_compute2" "$vm_ip_compute2" "$vm_id_compute2" &
 wait
 
 #Create cinder volumes for every VM
-volume_id_master=$(openstack volume create --size 20 --type $storage_type $volume_name_master | grep "^| id" | awk '{print $4}')
+volume_id_master=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_master" | grep "^| id" | awk '{print $4}')
 echo "Volume ID master: " $volume_id_master
 
-volume_id_compute1=$(openstack volume create --size 20 --type $storage_type $volume_name_compute1 | grep "^| id" | awk '{print $4}')
+volume_id_compute1=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_compute1" | grep "^| id" | awk '{print $4}')
 echo "Volume ID compute1: " $volume_id_compute1
 
-volume_id_compute2=$(openstack volume create --size 20 --type $storage_type $volume_name_compute2 | grep "^| id" | awk '{print $4}')
+volume_id_compute2=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_compute2" | grep "^| id" | awk '{print $4}')
 echo "Volume ID compute2: " $volume_id_compute2
 
 check_volume_acessability "$volume_id_master"
@@ -294,33 +295,36 @@ wait
 
 #Compile beegfs client beforehand as it needs special permissions for the autobuild
 echo "Compile beegfs client on $vm_name_master"
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master sudo /etc/init.d/beegfs-client rebuild
+ssh -i $path_private_key -q -tt -n centos@$vm_ip_master sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
 
 echo "Compile beegfs client on $vm_name_compute1"
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_compute1 sudo /etc/init.d/beegfs-client rebuild
+ssh -i $path_private_key -q -tt -n centos@$vm_ip_compute1 sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
 
 echo "Compile beegfs client on $vm_name_compute2"
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_compute2 sudo /etc/init.d/beegfs-client rebuild
+ssh -i $path_private_key -q -tt -n centos@$vm_ip_compute2 sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
 
 echo "Create beeond nodelist on $vm_name_master"
 #Create beeond nodelist
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master touch /home/centos/.beeond_nodefile
+ssh -i $path_private_key -q -tt -n centos@$vm_ip_master touch /home/centos/.beeond_nodefile 1> /dev/null 2> /dev/null
 
 echo "Set up nodefile on $vm_name_master"
 #Set up nodefile
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_master > /home/centos/.beeond_nodefile"
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_compute1 >> /home/centos/.beeond_nodefile"
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_compute2 >> /home/centos/.beeond_nodefile"
+ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_master > /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
+ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_compute1 >> /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
+ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_compute2 >> /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
 
 echo "Copy private key into VM (temporarily)"
 #Copy private key temporarily into VM
-scp -i $path_private_key $path_private_key centos@$vm_ip_master:/home/centos/
+scp -i $path_private_key $path_private_key centos@$vm_ip_master:/home/centos/ 1> /dev/null 2> /dev/null
 
 #Create VM internal private keys TO DO
 
 echo "Start BeeOND cluster"
 #Start beeond shared file system on master
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master beeond start -n /home/centos/.beeond_nodefile -d /mnt/ -c /beeond/ -a /home/centos/maximilian-demo.pem -z centos
+ssh -i $path_private_key -q -tt -n centos@$vm_ip_master beeond start -n /home/centos/.beeond_nodefile -d /mnt/ -c /beeond/ -a /home/centos/maximilian-demo.pem -z centos 1> /dev/null 2> /dev/null
+
+echo "Success: The BeeOND cluster has started sucessfully and is ready to use."
+echo "You can share files between the VMs via the /beeond directory."
 
 #Stop beeond shared filed system and delete all data of the system
 #beeond stop -n /home/centos/.beeond_nodefile -L -d -a /home/centos/maximilian-demo.pem -z centos

@@ -12,5 +12,5 @@ This will start up three VMs, updates the VMs and installs additional required t
 Afterwards then VMs will be rebooted and will continue the software installation process.
 This will be done in parallel for all three VMs. In the next step the cinder volumes will be created, attached
 to the VMs and configured. Subsequently BeeGFS, BeeOND and other required software from this repo will be installed 
-on all VMs. In order to communicate with the other VMs it necessary that the privat key has to be copied into the so called master VM. In a future version this private key will only be needed temporarily for a short time and replaced by an internally generated key.
+on all VMs. In order to communicate with the other VMs it necessary that the privat key has to be copied into the so called master VM. In a future version this private key will only be needed temporarily for a short time and replaced by an internally generated key also it will be possible to use SSH Keys protected by a password, currently it is only working without password protection.
 Finally the shared file system will be started and you will find the mount point of the file system under the following root directory `/beeond`. Every file you will put in the `/beeond` directory will be available on all participating nodes.

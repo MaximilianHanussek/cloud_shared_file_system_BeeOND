@@ -40,11 +40,11 @@ fi
 
 if [[ $number_workers == "1" ]]; then
 	echo "VM ID master: " $vm_id_master
-	echo "VM ID master: " $vm_id_compute1
+	echo "VM ID worker: " $vm_id_compute1
 else
 	echo "VM ID master: " $vm_id_master
-	echo "VM ID master: " $vm_id_compute1
-	echo "VM ID master: " $vm_id_compute2
+	echo "VM ID worker1: " $vm_id_compute1
+	echo "VM ID worker2: " $vm_id_compute2
 fi
 ### BEGIN FUNCTION DECLARATION ###################################################################################################################################################################
 
@@ -79,7 +79,7 @@ if [[ $active == 1 ]]; then
 	ping_counter=0
 	vm_ip=""
 	vm_ip=$(openstack server show $1 | grep addresses | awk '{print $4}' | awk -F = '{print $2}')
-	echo "IP address master: " $vm_ip
+	#echo "IP address master: " $vm_ip
 	while true; do	
 		if ping_bool $vm_ip; then
 			ping=1

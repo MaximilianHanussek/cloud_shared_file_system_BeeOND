@@ -16,27 +16,36 @@ security_group=${api_parameters_array[5]}
 key_name=${api_parameters_array[6]}
 storage_type=${api_parameters_array[7]}
 volume_size=${api_parameters_array[8]} #Has to be entered in GB
-vm_name_master=unicore_master
-vm_name_compute1=unicore_compute1
-vm_name_compute2=unicore_compute2
-volume_name_master=volume_unicore_master
-volume_name_compute1=volume_unicore_compute1
-volume_name_compute2=volume_unicore_compute2
+number_workers=${api_parameters_array[9]}
+vm_name_master=beeond_queen
+vm_name_compute1=beeond_worker1
+vm_name_compute2=beeond_worker2
+volume_name_master=volume_beeond_queen
+volume_name_compute1=volume_beeond_worker1
+volume_name_compute2=volume_beeond_worker2
 
 #Source the rc credentials
 source "$credentials"
 
 #Create instance(s)
 echo "VMs are launching"
-vm_id_master=$(openstack server create --flavor "$flavor" --image "$image" --nic net-id="$network" --security-group "$security_group" --key-name "$key_name" "$vm_name_master" | grep "^| id" | awk '{print $4}')
-vm_id_compute1=$(openstack server create --flavor "$flavor" --image "$image" --nic net-id="$network" --security-group "$security_group" --key-name "$key_name" "$vm_name_compute1" | grep "^| id" | awk '{print $4}')
-vm_id_compute2=$(openstack server create --flavor "$flavor" --image "$image" --nic net-id="$network" --security-group "$security_group" --key-name "$key_name" "$vm_name_compute2" | grep "^| id" | awk '{print $4}')
+if [[ $number_workers == "1" ]]; then
+	vm_id_master=$(openstack server create --flavor "$flavor" --image "$image" --nic net-id="$network" --security-group "$security_group" --key-name "$key_name" "$vm_name_master" | grep "^| id" | awk '{print $4}')
+	vm_id_compute1=$(openstack server create --flavor "$flavor" --image "$image" --nic net-id="$network" --security-group "$security_group" --key-name "$key_name" "$vm_name_compute1" | grep "^| id" | awk '{print $4}')
+else
+	vm_id_master=$(openstack server create --flavor "$flavor" --image "$image" --nic net-id="$network" --security-group "$security_group" --key-name "$key_name" "$vm_name_master" | grep "^| id" | awk '{print $4}')
+	vm_id_compute1=$(openstack server create --flavor "$flavor" --image "$image" --nic net-id="$network" --security-group "$security_group" --key-name "$key_name" "$vm_name_compute1" | grep "^| id" | awk '{print $4}')
+	vm_id_compute2=$(openstack server create --flavor "$flavor" --image "$image" --nic net-id="$network" --security-group "$security_group" --key-name "$key_name" "$vm_name_compute2" | grep "^| id" | awk '{print $4}')
+fi
 
-
-echo "VM ID master: " $vm_id_master
-echo "VM ID master: " $vm_id_compute1
-echo "VM ID master: " $vm_id_compute2
-
+if [[ $number_workers == "1" ]]; then
+	echo "VM ID master: " $vm_id_master
+	echo "VM ID master: " $vm_id_compute1
+else
+	echo "VM ID master: " $vm_id_master
+	echo "VM ID master: " $vm_id_compute1
+	echo "VM ID master: " $vm_id_compute2
+fi
 ### BEGIN FUNCTION DECLARATION ###################################################################################################################################################################
 
 ### Check if VM is active and can be used (ping and ssh is established) $1 is the vm_id
@@ -246,62 +255,113 @@ fi
 
 
 sleep 10
-check_vm_acessability "$vm_id_master"
-vm_ip_master=$vm_ip
 
-check_vm_acessability "$vm_id_compute1"
-vm_ip_compute1=$vm_ip
+if [[ $number_workers == "1" ]]; then
+	check_vm_acessability "$vm_id_master"
+	vm_ip_master=$vm_ip
 
-check_vm_acessability "$vm_id_compute2"
-vm_ip_compute2=$vm_ip
+	check_vm_acessability "$vm_id_compute1"
+	vm_ip_compute1=$vm_ip
+else
+	check_vm_acessability "$vm_id_master"
+	vm_ip_master=$vm_ip
 
-update_vm "$vm_name_master" "$vm_ip_master" "$vm_id_master" &
-update_vm "$vm_name_compute1" "$vm_ip_compute1" "$vm_id_compute1" &
-update_vm "$vm_name_compute2" "$vm_ip_compute2" "$vm_id_compute2" &
+	check_vm_acessability "$vm_id_compute1"
+	vm_ip_compute1=$vm_ip
+
+	check_vm_acessability "$vm_id_compute2"
+	vm_ip_compute2=$vm_ip
+fi
+
+if [[ $number_workers == "1" ]]; then
+	update_vm "$vm_name_master" "$vm_ip_master" "$vm_id_master" &
+	update_vm "$vm_name_compute1" "$vm_ip_compute1" "$vm_id_compute1" &
+else
+	update_vm "$vm_name_master" "$vm_ip_master" "$vm_id_master" &
+	update_vm "$vm_name_compute1" "$vm_ip_compute1" "$vm_id_compute1" &
+	update_vm "$vm_name_compute2" "$vm_ip_compute2" "$vm_id_compute2" &
+fi
 wait
 
 #Create cinder volumes for every VM
-volume_id_master=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_master" | grep "^| id" | awk '{print $4}')
-echo "Volume ID master: " $volume_id_master
 
-volume_id_compute1=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_compute1" | grep "^| id" | awk '{print $4}')
-echo "Volume ID compute1: " $volume_id_compute1
+if [[ $number_workers == "1" ]]; then
+	volume_id_master=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_master" | grep "^| id" | awk '{print $4}')
+	echo "Volume ID master: " $volume_id_master
 
-volume_id_compute2=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_compute2" | grep "^| id" | awk '{print $4}')
-echo "Volume ID compute2: " $volume_id_compute2
+	volume_id_compute1=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_compute1" | grep "^| id" | awk '{print $4}')
+	echo "Volume ID compute1: " $volume_id_compute1
+else
+	volume_id_master=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_master" | grep "^| id" | awk '{print $4}')
+	echo "Volume ID master: " $volume_id_master
 
-check_volume_acessability "$volume_id_master"
-if [[ $available == 1 ]]; then
-openstack server add volume --device /dev/vdb $vm_id_master $volume_id_master
+	volume_id_compute1=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_compute1" | grep "^| id" | awk '{print $4}')
+	echo "Volume ID compute1: " $volume_id_compute1
+
+	volume_id_compute2=$(openstack volume create --size $volume_size --type "$storage_type" "$volume_name_compute2" | grep "^| id" | awk '{print $4}')
+	echo "Volume ID compute2: " $volume_id_compute2
 fi
-echo "Cinder Volume is attached to $vm_name_master"
 
-check_volume_acessability "$volume_id_compute1"
-if [[ $available == 1 ]]; then
-openstack server add volume --device /dev/vdb $vm_id_compute1 $volume_id_compute1
+if [[ $number_workers == "1" ]]; then
+	check_volume_acessability "$volume_id_master"
+	if [[ $available == 1 ]]; then
+		openstack server add volume --device /dev/vdb $vm_id_master $volume_id_master
+	fi
+	echo "Cinder Volume is attached to $vm_name_master"
+
+	check_volume_acessability "$volume_id_compute1"
+	if [[ $available == 1 ]]; then
+		openstack server add volume --device /dev/vdb $vm_id_compute1 $volume_id_compute1
+	fi
+	echo "Cinder Volume is attached to $vm_name_compute1"
+else
+	check_volume_acessability "$volume_id_master"
+	if [[ $available == 1 ]]; then
+		openstack server add volume --device /dev/vdb $vm_id_master $volume_id_master
+	fi
+	echo "Cinder Volume is attached to $vm_name_master"
+
+	check_volume_acessability "$volume_id_compute1"
+	if [[ $available == 1 ]]; then
+		openstack server add volume --device /dev/vdb $vm_id_compute1 $volume_id_compute1
+	fi
+	echo "Cinder Volume is attached to $vm_name_compute1"
+
+	check_volume_acessability "$volume_id_compute2"
+	if [[ $available == 1 ]]; then
+		openstack server add volume --device /dev/vdb $vm_id_compute2 $volume_id_compute2
+	fi
+	echo "Cinder Volume is attached to $vm_name_compute2"
 fi
-echo "Cinder Volume is attached to $vm_name_compute1"
 
-check_volume_acessability "$volume_id_compute2"
-if [[ $available == 1 ]]; then
-openstack server add volume --device /dev/vdb $vm_id_compute2 $volume_id_compute2
+if [[ $number_workers == "1" ]]; then
+	install_and_configure_beeond "$vm_name_master" "$vm_ip_master" &
+	install_and_configure_beeond "$vm_name_compute1" "$vm_ip_compute1" &
+else
+	install_and_configure_beeond "$vm_name_master" "$vm_ip_master" &
+	install_and_configure_beeond "$vm_name_compute1" "$vm_ip_compute1" &
+	install_and_configure_beeond "$vm_name_compute2" "$vm_ip_compute2" &
 fi
-echo "Cinder Volume is attached to $vm_name_compute2"
-
-install_and_configure_beeond "$vm_name_master" "$vm_ip_master" &
-install_and_configure_beeond "$vm_name_compute1" "$vm_ip_compute1" &
-install_and_configure_beeond "$vm_name_compute2" "$vm_ip_compute2" &
 wait
 
 #Compile beegfs client beforehand as it needs special permissions for the autobuild
-echo "Compile beegfs client on $vm_name_master"
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
+if [[ $number_workers == "1" ]]; then
+	echo "Compile beegfs client on $vm_name_master"
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_master sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
 
-echo "Compile beegfs client on $vm_name_compute1"
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_compute1 sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
+	echo "Compile beegfs client on $vm_name_compute1"
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_compute1 sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
 
-echo "Compile beegfs client on $vm_name_compute2"
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_compute2 sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
+else
+	echo "Compile beegfs client on $vm_name_master"
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_master sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
+
+	echo "Compile beegfs client on $vm_name_compute1"
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_compute1 sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
+
+	echo "Compile beegfs client on $vm_name_compute2"
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_compute2 sudo /etc/init.d/beegfs-client rebuild 1> /dev/null 2> /dev/null
+fi
 
 echo "Create beeond nodelist on $vm_name_master"
 #Create beeond nodelist
@@ -309,9 +369,14 @@ ssh -i $path_private_key -q -tt -n centos@$vm_ip_master touch /home/centos/.beeo
 
 echo "Set up nodefile on $vm_name_master"
 #Set up nodefile
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_master > /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_compute1 >> /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
-ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_compute2 >> /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
+if [[ $number_workers == "1" ]]; then
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_master > /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_compute1 >> /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
+else
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_master > /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_compute1 >> /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
+	ssh -i $path_private_key -q -tt -n centos@$vm_ip_master "echo $vm_ip_compute2 >> /home/centos/.beeond_nodefile" 1> /dev/null 2> /dev/null
+fi
 
 echo "Copy private key into VM (temporarily)"
 #Copy private key temporarily into VM
